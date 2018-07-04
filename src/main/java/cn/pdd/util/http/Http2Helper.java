@@ -3,6 +3,7 @@
  */
 package cn.pdd.util.http;
 
+import java.nio.charset.Charset;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.log4j.Logger;
@@ -10,10 +11,12 @@ import org.apache.log4j.Logger;
 import okhttp3.ConnectionPool;
 import okhttp3.Dispatcher;
 import okhttp3.FormBody;
+import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
+import okhttp3.internal.Util;
 
 /**
  * @author paddingdun
@@ -58,25 +61,32 @@ public class Http2Helper {
 	
 	private int type;
 	
-	private Http2Helper(String url, int type){
+	private Http2Helper(String url, int type, Charset charset){
 		this.type = type;
 		this.requestBuilder = new Request.Builder();
 		this.requestBuilder.url(url);
-		this.formBodyBuilder = new FormBody.Builder();
+		this.formBodyBuilder = new FormBody.Builder(charset);
 	}
 	
+	/**
+	 * 参数默认将是utf-8编码
+	 * @param url
+	 * @return
+	 */
 	public static Http2Helper post(String url) {
-        return new Http2Helper(url, 1);
+        return new Http2Helper(url, 1, Util.UTF_8);
+    }
+	
+	public static Http2Helper post(String url, Charset charset) {
+        return new Http2Helper(url, 1, charset);
     }
 	
 	public static Http2Helper get(String url) {
-        return new Http2Helper(url, 2);
+        return new Http2Helper(url, 2, Util.UTF_8);
     }
 	
 	public Http2Helper setContentType(final String mimeType) {
-		if(this.type == 1) {
-			this.requestBuilder.header("Content-Type", mimeType);
-		}
+		this.requestBuilder.header("Content-Type", mimeType);
         return this;
     }
 	
@@ -90,13 +100,47 @@ public class Http2Helper {
         return this;
     }
 	
+	/**
+	 * 参数和值未经过urlencode编码;
+	 * @param name
+	 * @param value
+	 * @return
+	 */
 	public Http2Helper addParameter(final String name, final String value) {
 		formBodyBuilder.add(name, value);
         return this;
     }
 	
+	/**
+	 * 参数和值已经过urlencode编码;
+	 * @param name
+	 * @param value
+	 * @return
+	 */
+	public Http2Helper addEncodedParameter(final String name, final String value) {
+		formBodyBuilder.addEncoded(name, value);
+        return this;
+    }
+	
+	/**
+	 * utf-8转成字节流;
+	 * @param json
+	 * @return
+	 */
 	public Http2Helper setParameterJson(String json) {
 		this.requestBody = RequestBody.create(null, json);
+        return this;
+    }
+	
+	/**
+	 * 以指定的编码方式转成字节流;
+	 * @param json
+	 * @param charset
+	 * @return
+	 */
+	public Http2Helper setParameterJson(String json, Charset charset) {
+		String c_name = charset.name();
+		this.requestBody = RequestBody.create(MediaType.parse("application/json;charset=" + c_name), json);
         return this;
     }
 	
@@ -129,5 +173,7 @@ public class Http2Helper {
 	}
 	
 	public static void main(String[] args) throws Exception{
+		Http2Helper helper = Http2Helper.get("http://www.baidu.com/");
+		helper.setParameterJson("{\"a\":\"中文\"}", Charset.forName("GBK"));
 	}
 }
