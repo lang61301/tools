@@ -20,6 +20,7 @@ import okhttp3.internal.Util;
 
 /**
  * @author paddingdun
+ * 基于okhttp3实现的工具类;
  * 注意:该类对于参数的默认编码就是:"utf-8"
  *
  * 2018年7月3日
@@ -173,7 +174,5 @@ public class Http2Helper {
 	}
 	
 	public static void main(String[] args) throws Exception{
-		Http2Helper helper = Http2Helper.get("http://www.baidu.com/");
-		helper.setParameterJson("{\"a\":\"中文\"}", Charset.forName("GBK"));
 	}
 }
