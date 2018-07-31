@@ -22,7 +22,9 @@ import okhttp3.internal.Util;
  * @author paddingdun
  * 基于okhttp3实现的工具类;
  * 注意:该类对于参数的默认编码就是:"utf-8"
- *
+ * 
+ * 该类每次使用都应该重新创建Http2Helper对象(这样就可以多线程使用);
+ * 切记一个对象多次调用
  * 2018年7月3日
  * @since 1.0
  * @version 1.0
@@ -43,9 +45,14 @@ public class Http2Helper {
 		Dispatcher dispatcher = new Dispatcher();
 		dispatcher.setMaxRequests(64);
 		dispatcher.setMaxRequestsPerHost(4);
+		
+//		HttpLoggingInterceptor interceptor =new HttpLoggingInterceptor(HttpLoggingInterceptor.Logger.DEFAULT);
+//		interceptor.setLevel(HttpLoggingInterceptor.Level.BODY);
+		
 		client = new OkHttpClient.Builder()
 				.connectionPool(connectionPool)
 				.dispatcher(dispatcher)
+//				.addNetworkInterceptor(interceptor)
 				.connectTimeout(60, TimeUnit.SECONDS)//连接超时时间
 		        .readTimeout(60, TimeUnit.SECONDS)//读的时间
 		        .writeTimeout(60, TimeUnit.SECONDS)//写的时间
