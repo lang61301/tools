@@ -4,6 +4,7 @@
 package cn.pdd.util.http;
 
 import java.nio.charset.Charset;
+import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.log4j.Logger;
@@ -16,6 +17,7 @@ import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
+import okhttp3.ResponseBody;
 import okhttp3.internal.Util;
 
 /**
@@ -152,6 +154,23 @@ public class Http2Helper {
         return this;
     }
 	
+	public String executeToString()throws Exception {
+		Response response = null;
+		try {
+			response = this.execute();
+			int code = response.code();
+			if(code == 200) {
+				ResponseBody rb = response.body();
+				return rb.string();
+			}
+			throw new RuntimeException("HTTP CODE:" + code);
+		}finally {
+			if(null != response) {
+				response.close();
+			}
+		}
+	}
+	
 	public Response execute()throws Exception {
 		if( this.type == 1 ) {
 			if(null == this.requestBody) {
@@ -163,6 +182,10 @@ public class Http2Helper {
 		}
 		
 		if(this.request != null) {
+			Response r = client.newCall(this.request).execute();
+			int code = r.code();
+			ResponseBody rb  = r.body();
+			r.close();
 			return client.newCall(this.request).execute();
 		}else {
 			throw new RuntimeException("无效的请求类型!");
@@ -181,5 +204,8 @@ public class Http2Helper {
 	}
 	
 	public static void main(String[] args) throws Exception{
+		Http2Helper helper = Http2Helper.get("http://www.baidu.com");
+		String s = helper.executeToString();
+		System.out.println(s);
 	}
 }
