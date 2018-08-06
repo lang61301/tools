@@ -182,10 +182,6 @@ public class Http2Helper {
 		}
 		
 		if(this.request != null) {
-			Response r = client.newCall(this.request).execute();
-			int code = r.code();
-			ResponseBody rb  = r.body();
-			r.close();
 			return client.newCall(this.request).execute();
 		}else {
 			throw new RuntimeException("无效的请求类型!");
