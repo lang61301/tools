@@ -4,7 +4,6 @@
 package cn.pdd.util.http;
 
 import java.nio.charset.Charset;
-import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.log4j.Logger;
@@ -19,6 +18,7 @@ import okhttp3.RequestBody;
 import okhttp3.Response;
 import okhttp3.ResponseBody;
 import okhttp3.internal.Util;
+import okhttp3.logging.HttpLoggingInterceptor;
 
 /**
  * @author paddingdun
@@ -38,6 +38,8 @@ public class Http2Helper {
 	 * Http2Helper 日志变量;
 	 */
 	private final static Logger logger = Logger.getLogger(Http2Helper.class);
+	
+	private final static int DEFAULT_TIMEOUT = -1;
 
 	private static OkHttpClient client = null;
 	
@@ -48,16 +50,16 @@ public class Http2Helper {
 		dispatcher.setMaxRequests(64);
 		dispatcher.setMaxRequestsPerHost(4);
 		
-//		HttpLoggingInterceptor interceptor =new HttpLoggingInterceptor(HttpLoggingInterceptor.Logger.DEFAULT);
-//		interceptor.setLevel(HttpLoggingInterceptor.Level.BODY);
+		HttpLoggingInterceptor interceptor =new HttpLoggingInterceptor(HttpLoggingInterceptor.Logger.DEFAULT);
+		interceptor.setLevel(HttpLoggingInterceptor.Level.BODY);
 		
 		client = new OkHttpClient.Builder()
 				.connectionPool(connectionPool)
 				.dispatcher(dispatcher)
-//				.addNetworkInterceptor(interceptor)
-				.connectTimeout(60, TimeUnit.SECONDS)//连接超时时间
-		        .readTimeout(60, TimeUnit.SECONDS)//读的时间
-		        .writeTimeout(60, TimeUnit.SECONDS)//写的时间
+				.addNetworkInterceptor(interceptor)
+				.connectTimeout(10, TimeUnit.SECONDS)//连接超时时间
+		        .readTimeout(10, TimeUnit.SECONDS)//读的时间
+		        .writeTimeout(10, TimeUnit.SECONDS)//写的时间
 				.build();
 	}
 	
@@ -171,7 +173,32 @@ public class Http2Helper {
 		}
 	}
 	
-	public Response execute()throws Exception {
+	public String executeToString(int connectTimeout, int readTimeout, int writeTimeout)throws Exception {
+		Response response = null;
+		try {
+			response = this.execute(connectTimeout, readTimeout, writeTimeout);
+			int code = response.code();
+			if(code == 200) {
+				ResponseBody rb = response.body();
+				return rb.string();
+			}
+			throw new RuntimeException("HTTP CODE:" + code);
+		}finally {
+			if(null != response) {
+				response.close();
+			}
+		}
+	}
+	
+	/**
+	 * 单位:秒;
+	 * @param connectTimeout
+	 * @param readTimeout
+	 * @param writeTimeout
+	 * @return
+	 * @throws Exception
+	 */
+	public Response execute(int connectTimeout, int readTimeout, int writeTimeout)throws Exception {
 		if( this.type == 1 ) {
 			if(null == this.requestBody) {
 				this.requestBody = this.formBodyBuilder.build();
@@ -181,11 +208,34 @@ public class Http2Helper {
 			this.request = this.requestBuilder.get().build();
 		}
 		
+		
 		if(this.request != null) {
-			return client.newCall(this.request).execute();
+			OkHttpClient c = null;
+			if(connectTimeout == DEFAULT_TIMEOUT
+					&& readTimeout == DEFAULT_TIMEOUT
+					&& writeTimeout == DEFAULT_TIMEOUT) {
+				c = client;
+			}else {
+				Util.checkDuration("connectTimeout", connectTimeout, TimeUnit.SECONDS);
+				Util.checkDuration("readTimeout", readTimeout, TimeUnit.SECONDS);
+				Util.checkDuration("writeTimeout", writeTimeout, TimeUnit.SECONDS);
+				
+				c = client.newBuilder()
+				.connectTimeout(connectTimeout, TimeUnit.SECONDS)//连接超时时间
+		        .readTimeout(readTimeout, TimeUnit.SECONDS)//读的时间
+		        .writeTimeout(writeTimeout, TimeUnit.SECONDS)//写的时间
+		        .build();
+			}
+			Response result = c.newCall(this.request).execute();
+			c = null;
+			return result;
 		}else {
 			throw new RuntimeException("无效的请求类型!");
 		}
+	}
+	
+	public Response execute()throws Exception {
+		return execute(DEFAULT_TIMEOUT, DEFAULT_TIMEOUT, DEFAULT_TIMEOUT);
 	}
 	
 	public static void destroy() {
@@ -194,14 +244,14 @@ public class Http2Helper {
 				client.connectionPool().evictAll();
 				client.dispatcher().executorService().shutdown();
 			}catch(Exception e) {
-				
+				e.printStackTrace();
 			}
 		}
 	}
 	
 	public static void main(String[] args) throws Exception{
-		Http2Helper helper = Http2Helper.get("http://www.baidu.com");
-		String s = helper.executeToString();
+		Http2Helper helper = Http2Helper.get("http://www.baidu55.com");
+		String s = helper.executeToString(5,1,1);
 		System.out.println(s);
 	}
 }
