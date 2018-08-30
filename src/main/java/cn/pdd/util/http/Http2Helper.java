@@ -50,7 +50,14 @@ public class Http2Helper {
 		dispatcher.setMaxRequests(64);
 		dispatcher.setMaxRequestsPerHost(4);
 		
-		HttpLoggingInterceptor interceptor =new HttpLoggingInterceptor(HttpLoggingInterceptor.Logger.DEFAULT);
+		HttpLoggingInterceptor interceptor =new HttpLoggingInterceptor(new HttpLoggingInterceptor.Logger() {
+			@Override
+			public void log(String message) {
+				if(logger.isDebugEnabled()) {
+					logger.debug(message);
+				}
+			}
+		});
 		interceptor.setLevel(HttpLoggingInterceptor.Level.BODY);
 		
 		client = new OkHttpClient.Builder()
