@@ -159,7 +159,7 @@ public class Http2Helper {
 	 */
 	public Http2Helper setParameterJson(String json, Charset charset) {
 		String c_name = charset.name();
-		this.requestBody = RequestBody.create(MediaType.parse("application/json;charset=" + c_name), json);
+		this.requestBody = RequestBody.create(MediaType.parse("application/json; charset=" + c_name), json);
         return this;
     }
 	
