@@ -164,29 +164,23 @@ public class Http2Helper {
     }
 	
 	public String executeToString()throws Exception {
-		Response response = null;
-		try {
-			response = this.execute();
-			int code = response.code();
-			if(code == 200) {
-				ResponseBody rb = response.body();
-				return rb.string();
-			}
-			throw new RuntimeException("HTTP CODE:" + code);
-		}finally {
-			if(null != response) {
-				response.close();
-			}
-		}
+		return executeToString(DEFAULT_TIMEOUT, DEFAULT_TIMEOUT, DEFAULT_TIMEOUT, null, true);
 	}
 	
-	public String executeToString(int connectTimeout, int readTimeout, int writeTimeout)throws Exception {
+	public String executeToString(Charset charset)throws Exception {
+		return executeToString(DEFAULT_TIMEOUT, DEFAULT_TIMEOUT, DEFAULT_TIMEOUT, charset, true);
+	}
+	
+	public String executeToString(int connectTimeout, int readTimeout, int writeTimeout, Charset charset, boolean followRedirects)throws Exception {
 		Response response = null;
 		try {
-			response = this.execute(connectTimeout, readTimeout, writeTimeout);
+			response = this.execute(connectTimeout, readTimeout, writeTimeout, followRedirects);
 			int code = response.code();
 			if(code == 200) {
 				ResponseBody rb = response.body();
+				if(null != charset) {
+					return new String(rb.bytes(), charset);
+				}
 				return rb.string();
 			}
 			throw new RuntimeException("HTTP CODE:" + code);
@@ -205,7 +199,7 @@ public class Http2Helper {
 	 * @return
 	 * @throws Exception
 	 */
-	public Response execute(int connectTimeout, int readTimeout, int writeTimeout)throws Exception {
+	public Response execute(int connectTimeout, int readTimeout, int writeTimeout, boolean followRedirects)throws Exception {
 		if( this.type == 1 ) {
 			if(null == this.requestBody) {
 				this.requestBody = this.formBodyBuilder.build();
@@ -220,7 +214,8 @@ public class Http2Helper {
 			OkHttpClient c = null;
 			if(connectTimeout == DEFAULT_TIMEOUT
 					&& readTimeout == DEFAULT_TIMEOUT
-					&& writeTimeout == DEFAULT_TIMEOUT) {
+					&& writeTimeout == DEFAULT_TIMEOUT
+					&& followRedirects == true) {
 				c = client;
 			}else {
 				Util.checkDuration("connectTimeout", connectTimeout, TimeUnit.SECONDS);
@@ -228,6 +223,7 @@ public class Http2Helper {
 				Util.checkDuration("writeTimeout", writeTimeout, TimeUnit.SECONDS);
 				
 				c = client.newBuilder()
+				.followRedirects(followRedirects)
 				.connectTimeout(connectTimeout, TimeUnit.SECONDS)//连接超时时间
 		        .readTimeout(readTimeout, TimeUnit.SECONDS)//读的时间
 		        .writeTimeout(writeTimeout, TimeUnit.SECONDS)//写的时间
@@ -242,7 +238,7 @@ public class Http2Helper {
 	}
 	
 	public Response execute()throws Exception {
-		return execute(DEFAULT_TIMEOUT, DEFAULT_TIMEOUT, DEFAULT_TIMEOUT);
+		return execute(DEFAULT_TIMEOUT, DEFAULT_TIMEOUT, DEFAULT_TIMEOUT, true);
 	}
 	
 	public static void destroy() {
@@ -258,7 +254,7 @@ public class Http2Helper {
 	
 	public static void main(String[] args) throws Exception{
 		Http2Helper helper = Http2Helper.get("http://www.baidu55.com");
-		String s = helper.executeToString(5,1,1);
+		String s = helper.executeToString(5,1,1, null, false);
 		System.out.println(s);
 	}
 }
