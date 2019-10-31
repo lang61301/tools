@@ -19,7 +19,7 @@
 	  <cxf.version>3.0.2</cxf.version>  
 	  <spring.version>4.3.9.RELEASE</spring.version>
 	  <antlr.version>3.0.1</antlr.version>
-	  <jackson.version>2.5.4</jackson.version>
+	  <jackson.version>2.10.0</jackson.version>
   </properties>
   
   <dependencies>
