@@ -11,6 +11,7 @@ import org.apache.log4j.Logger;
 import okhttp3.ConnectionPool;
 import okhttp3.Dispatcher;
 import okhttp3.FormBody;
+import okhttp3.HttpUrl;
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -79,11 +80,12 @@ public class Http2Helper {
 	
 	
 	private int type;
+	private String url;
 	
 	private Http2Helper(String url, int type, Charset charset){
+		this.url = url;
 		this.type = type;
 		this.requestBuilder = new Request.Builder();
-		this.requestBuilder.url(url);
 		this.formBodyBuilder = new FormBody.Builder(charset);
 	}
 	
@@ -204,9 +206,23 @@ public class Http2Helper {
 			if(null == this.requestBody) {
 				this.requestBody = this.formBodyBuilder.build();
 			}
-			this.request = this.requestBuilder.post(requestBody).build();
+			this.request = this.requestBuilder.url(this.url).post(requestBody).build();
 		}else if(this.type == 2) {
-			this.request = this.requestBuilder.get().build();
+			/**
+			 * add by 2019-11-19
+			 * 如果增加了formBody参数,将其拼接到url上;
+			 */
+			FormBody fb = this.formBodyBuilder.build();
+			int qs = fb.size();
+			HttpUrl hu = HttpUrl.parse(this.url);
+			if(qs > 0) {
+				HttpUrl.Builder hub = hu.newBuilder();
+				for (int i = 0; i < qs; i++) {
+					hub.addQueryParameter(fb.name(i), fb.value(i));
+				}
+				hu = hub.build();
+			}
+			this.request = this.requestBuilder.url(hu).get().build();
 		}
 		
 		
