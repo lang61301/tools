@@ -3,6 +3,7 @@
  */
 package cn.pdd.util.http;
 
+import java.io.File;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -18,6 +19,7 @@ import okhttp3.Dispatcher;
 import okhttp3.FormBody;
 import okhttp3.HttpUrl;
 import okhttp3.MediaType;
+import okhttp3.MultipartBody;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
@@ -27,6 +29,9 @@ import okhttp3.internal.Util;
 import okhttp3.logging.HttpLoggingInterceptor;
 
 /**
+ * modify by 2020/6/23
+ * 增加保存cookie方式;
+ *
  * @author paddingdun
  * 基于okhttp3实现的工具类;
  * 注意:该类对于参数的默认编码就是:"utf-8"
@@ -48,6 +53,44 @@ public class Http2Helper {
 	private final static int DEFAULT_TIMEOUT = -1;
 
 	private static OkHttpClient client = null;
+
+	static class MemoryCookieJar implements CookieJar{
+
+		private List<Cookie> copy = null;
+
+		public MemoryCookieJar(List<Cookie> cookieList) {
+			this.copy = cookieList;
+		}
+
+		@Override
+		public void saveFromResponse(HttpUrl url, List<Cookie> cookies) {
+			copy.addAll(cookies);
+		}
+
+		@Override
+		public List<Cookie> loadForRequest(HttpUrl url) {
+			// 过期的Cookie
+			List<Cookie> invalidCookies = new ArrayList<Cookie>();
+			// 有效的Cookie
+			List<Cookie> validCookies = new ArrayList<Cookie>();
+
+			for (Cookie cookie : copy) {
+				if (cookie.expiresAt() < System.currentTimeMillis()) {
+					// 判断是否过期
+					invalidCookies.add(cookie);
+				} else if (cookie.matches(url)) {
+					// 匹配Cookie对应url
+					validCookies.add(cookie);
+				}
+			}
+
+			// 缓存中移除过期的Cookie
+			copy.removeAll(invalidCookies);
+			// 返回List<Cookie>让Request进行设置
+			return validCookies;
+		}
+
+	}
 
 	static {
 		ConnectionPool connectionPool = new ConnectionPool(5, 1, TimeUnit.MINUTES);
@@ -96,17 +139,28 @@ public class Http2Helper {
 
 	private RequestBody requestBody = null;
 	private FormBody.Builder formBodyBuilder = null;
+	private MultipartBody.Builder multipartBodyBuilder = null;
+	private boolean multipart = false;
 
 
 
 	private int type;
 	private String url;
 
-	private Http2Helper(String url, int type, Charset charset){
+	/**
+	 * add by 2020/6/23
+	 */
+	private boolean useCookie;
+	private List<Cookie> cookieList;
+
+	private Http2Helper(String url, int type, Charset charset, boolean useCookie){
 		this.url = url;
 		this.type = type;
 		this.requestBuilder = new Request.Builder();
 		this.formBodyBuilder = new FormBody.Builder(charset);
+		this.multipartBodyBuilder = new MultipartBody.Builder();
+		this.multipartBodyBuilder.setType(MultipartBody.FORM);
+		this.useCookie = useCookie;
 	}
 
 	/**
@@ -115,15 +169,19 @@ public class Http2Helper {
 	 * @return
 	 */
 	public static Http2Helper post(String url) {
-        return new Http2Helper(url, 1, Util.UTF_8);
+        return post(url, Util.UTF_8, false);
     }
 
-	public static Http2Helper post(String url, Charset charset) {
-        return new Http2Helper(url, 1, charset);
+	public static Http2Helper post(String url, Charset charset, boolean useCookie) {
+        return new Http2Helper(url, 1, charset, useCookie);
     }
 
 	public static Http2Helper get(String url) {
-        return new Http2Helper(url, 2, Util.UTF_8);
+        return get(url, false);
+    }
+
+	public static Http2Helper get(String url, boolean useCookie) {
+        return new Http2Helper(url, 2, Util.UTF_8, useCookie);
     }
 
 	public Http2Helper setContentType(final String mimeType) {
@@ -185,6 +243,25 @@ public class Http2Helper {
         return this;
     }
 
+	/**
+	 * add by 2018-12-05
+	 * @param name
+	 * @param value
+	 * @return
+	 */
+	public Http2Helper addPart(String name, String value) {
+		this.multipartBodyBuilder.addFormDataPart(name, value);
+		this.multipart = true;
+		return this;
+	}
+
+	public Http2Helper addPart(String name, String filename, File file) {
+		RequestBody partRequestBody = RequestBody.create(null, file);
+		this.multipartBodyBuilder.addFormDataPart(name, filename, partRequestBody);
+		this.multipart = true;
+	    return this;
+	}
+
 	public String executeToString()throws Exception {
 		return executeToString(DEFAULT_TIMEOUT, DEFAULT_TIMEOUT, DEFAULT_TIMEOUT, null, true);
 	}
@@ -223,8 +300,12 @@ public class Http2Helper {
 	 */
 	public Response execute(int connectTimeout, int readTimeout, int writeTimeout, boolean followRedirects)throws Exception {
 		if( this.type == 1 ) {
-			if(null == this.requestBody) {
-				this.requestBody = this.formBodyBuilder.build();
+			if(this.multipart) {
+				this.requestBody = this.multipartBodyBuilder.build();
+			}else {
+				if(null == this.requestBody) {
+					this.requestBody = this.formBodyBuilder.build();
+				}
 			}
 			this.request = this.requestBuilder.url(this.url).post(requestBody).build();
 		}else if(this.type == 2) {
@@ -252,18 +333,30 @@ public class Http2Helper {
 					&& readTimeout == DEFAULT_TIMEOUT
 					&& writeTimeout == DEFAULT_TIMEOUT
 					&& followRedirects == true) {
-				c = client;
+				if(useCookie) {//需要cookie;
+					MemoryCookieJar mcj = new MemoryCookieJar(this.cookieList);
+					c = client.newBuilder()
+							.cookieJar(mcj)
+							.build();
+				}else {
+					c = client;
+				}
 			}else {
 				Util.checkDuration("connectTimeout", connectTimeout, TimeUnit.SECONDS);
 				Util.checkDuration("readTimeout", readTimeout, TimeUnit.SECONDS);
 				Util.checkDuration("writeTimeout", writeTimeout, TimeUnit.SECONDS);
 
-				c = client.newBuilder()
-				.followRedirects(followRedirects)
+				OkHttpClient.Builder b = client.newBuilder();
+				b.followRedirects(followRedirects)
 				.connectTimeout(connectTimeout, TimeUnit.SECONDS)//连接超时时间
 		        .readTimeout(readTimeout, TimeUnit.SECONDS)//读的时间
-		        .writeTimeout(writeTimeout, TimeUnit.SECONDS)//写的时间
-		        .build();
+		        .writeTimeout(writeTimeout, TimeUnit.SECONDS);//写的时间
+
+				if(useCookie) {//需要cookie;
+					MemoryCookieJar mcj = new MemoryCookieJar(this.cookieList);
+					b.cookieJar(mcj);
+				}
+		        c = b.build();
 			}
 			Response result = c.newCall(this.request).execute();
 			c = null;
