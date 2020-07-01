@@ -12,7 +12,7 @@
 	  <junit.version>4.10</junit.version>  
 	  <log4j.version>2.0</log4j.version> 
 	  <slf.log4j.version>1.7.5</slf.log4j.version>  
-	  <mysql.jdbc.version>5.1.21</mysql.jdbc.version>  
+	  <mysql.jdbc.version>8.0.16</mysql.jdbc.version>  
 	  <mybatis.version>3.2.8</mybatis.version>  
 	  <commons.fileupload.version>1.2.1</commons.fileupload.version>  
 	  <javassist.version>3.12.1.GA</javassist.version>  
