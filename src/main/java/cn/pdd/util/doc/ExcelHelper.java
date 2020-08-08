@@ -91,6 +91,8 @@ public class ExcelHelper {
 			for (int i = 0; i < rowNum && i < max; i++) {
 				Row r = sheet.getRow(i);
 				if(r != null){
+					//getPhysicalNumberOfCells()是获取有数据的格子数量;
+//					colNum = Math.max(r.getPhysicalNumberOfCells(), colNum);
 					colNum = Math.max(r.getLastCellNum(), colNum);
 				}
 			}
