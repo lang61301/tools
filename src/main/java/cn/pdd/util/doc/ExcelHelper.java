@@ -1,5 +1,5 @@
 /**
- * 
+ *
  */
 package cn.pdd.util.doc;
 
@@ -43,12 +43,12 @@ import cn.pdd.util.io.IOHelper;
  */
 @SuppressWarnings({"unused"})
 public class ExcelHelper {
-	
+
 	/**
 	 * ExcelHelper 日志变量;
 	 */
 	private final static Logger logger = Logger.getLogger(ExcelHelper.class);
-	
+
 	private static boolean isExcel2003(String filePath){
 		return filePath.matches("^.+\\.(?i)(xls)$");
 	}
@@ -58,7 +58,7 @@ public class ExcelHelper {
 	}
 
 	/**
-	 * 
+	 *
 	 * @param filePath
 	 * @param sheetnum
 	 * @param startRow
@@ -66,7 +66,7 @@ public class ExcelHelper {
 	 */
 	public static List<String[]> importExcel(String filePath, int sheetnum, int startRow)throws Exception{
 		List<String[]> result = new ArrayList<String[]>();
-		
+
 		InputStream inputStream	= null;
 		Workbook 	wb			= null;
 		try {
@@ -79,8 +79,8 @@ public class ExcelHelper {
 				wb = new XSSFWorkbook(inputStream);
 			}
 			//获取公式计算器;
-			FormulaEvaluator evaluator = wb.getCreationHelper().createFormulaEvaluator(); 
-			
+			FormulaEvaluator evaluator = wb.getCreationHelper().createFormulaEvaluator();
+
 			//获取指定的sheet;
 			Sheet sheet = wb.getSheetAt(sheetnum);
 			//行数;
@@ -91,7 +91,7 @@ public class ExcelHelper {
 			for (int i = 0; i < rowNum && i < max; i++) {
 				Row r = sheet.getRow(i);
 				if(r != null){
-					colNum = Math.max(r.getPhysicalNumberOfCells(), colNum);
+					colNum = Math.max(r.getLastCellNum(), colNum);
 				}
 			}
 			//循环遍历excel表格;
@@ -111,7 +111,7 @@ public class ExcelHelper {
 		}
 		return result;
 	}
-	
+
 	/**
 	 * 获取指定的行列的cell;当行列在合并区域内时,返回该合并去区域的第一个cell;
 	 * @param sheet
@@ -120,16 +120,16 @@ public class ExcelHelper {
 	 * @return
 	 */
 	public static Cell getCell(Sheet sheet, int row, int column){
-		int sheetMergeCount = sheet.getNumMergedRegions();  
+		int sheetMergeCount = sheet.getNumMergedRegions();
 		for(int i = 0 ; i < sheetMergeCount ; i++){
-			CellRangeAddress ca = sheet.getMergedRegion(i);  
-			int firstColumn = ca.getFirstColumn();  
-			int lastColumn = ca.getLastColumn();  
+			CellRangeAddress ca = sheet.getMergedRegion(i);
+			int firstColumn = ca.getFirstColumn();
+			int lastColumn = ca.getLastColumn();
 			int firstRow = ca.getFirstRow();
-			int lastRow = ca.getLastRow();  
-			if(row >= firstRow && row <= lastRow){   
-				if(column >= firstColumn && column <= lastColumn){ 
-					Row fRow = sheet.getRow(firstRow); 
+			int lastRow = ca.getLastRow();
+			if(row >= firstRow && row <= lastRow){
+				if(column >= firstColumn && column <= lastColumn){
+					Row fRow = sheet.getRow(firstRow);
 					Cell fCell = fRow.getCell(firstColumn);
 					return fCell;
 				}
@@ -138,7 +138,7 @@ public class ExcelHelper {
 		Cell cell = sheet.getRow(row).getCell(column);
 		return cell;
 	}
-	
+
 	/**
 	 * 获取包含合并区域内的cell的值;
 	 * @param evaluator, 没有可以为null;
@@ -150,9 +150,9 @@ public class ExcelHelper {
 	public static String getCellValue(FormulaEvaluator evaluator, Sheet sheet, int row, int column){
 		Cell cell = getCell(sheet, row, column);
 		if(cell == null)return "";
-		return getCellValue(cell, evaluator) ;     
+		return getCellValue(cell, evaluator) ;
 	}
-	
+
 	/**
 	 * 将给定的值设置给该cell;
 	 * @param sheet
@@ -160,11 +160,11 @@ public class ExcelHelper {
 	 * @param column
 	 * @param value
 	 */
-	public static void setCellValue(Sheet sheet, int row, int column, String value){     
+	public static void setCellValue(Sheet sheet, int row, int column, String value){
 		Cell cell = getCell(sheet, row, column);
 		cell.setCellValue(StringUtils.trimToEmpty(value));
 	}
-    
+
     /**
      * 获取指定cell的值;
      * @param cell
@@ -175,7 +175,7 @@ public class ExcelHelper {
     	int cellType = cell.getCellType();
 
     	//当cell表明是公式时,单独处理;
-    	if(Cell.CELL_TYPE_FORMULA == cellType 
+    	if(Cell.CELL_TYPE_FORMULA == cellType
     			&& evaluator != null){
     		CellValue cv = evaluator.evaluate(cell);
     		return getCellValue(cv);
@@ -204,46 +204,46 @@ public class ExcelHelper {
 			return cellValue;
 		}
 		int cellType = (cv != null)? cv.getCellType() : cell.getCellType();
-		switch(cellType) {  
-		//文本  
-		case Cell.CELL_TYPE_STRING: 
-			cellValue = (cv != null)? cv.getStringValue() : cell.getStringCellValue();  
-			break;  
-			//布尔型 
-		case Cell.CELL_TYPE_BOOLEAN:  
-			cellValue = (cv != null)? String.valueOf(cv.getBooleanValue()) : String.valueOf(cell.getBooleanCellValue());  
-			break;  
-			//空白  
-		case Cell.CELL_TYPE_BLANK: 
-			cellValue = (cv != null)? cv.getStringValue() : cell.getStringCellValue();  
-			break;  
-			//公式  
-		case Cell.CELL_TYPE_FORMULA: 
-			cellValue = cell.getCellFormula() ;   
-			break; 
-			//错误 
-		case Cell.CELL_TYPE_ERROR:  
-			cellValue = "error";  
+		switch(cellType) {
+		//文本
+		case Cell.CELL_TYPE_STRING:
+			cellValue = (cv != null)? cv.getStringValue() : cell.getStringCellValue();
 			break;
-			//数字、日期  
-		case Cell.CELL_TYPE_NUMERIC: 
+			//布尔型
+		case Cell.CELL_TYPE_BOOLEAN:
+			cellValue = (cv != null)? String.valueOf(cv.getBooleanValue()) : String.valueOf(cell.getBooleanCellValue());
+			break;
+			//空白
+		case Cell.CELL_TYPE_BLANK:
+			cellValue = (cv != null)? cv.getStringValue() : cell.getStringCellValue();
+			break;
+			//公式
+		case Cell.CELL_TYPE_FORMULA:
+			cellValue = cell.getCellFormula() ;
+			break;
+			//错误
+		case Cell.CELL_TYPE_ERROR:
+			cellValue = "error";
+			break;
+			//数字、日期
+		case Cell.CELL_TYPE_NUMERIC:
 			//日期型
-			if(cell != null && HSSFDateUtil.isCellDateFormatted(cell)) {  
+			if(cell != null && HSSFDateUtil.isCellDateFormatted(cell)) {
 				double value = cell.getNumericCellValue();
-				Date date = org.apache.poi.ss.usermodel.DateUtil.getJavaDate(value);  
-				cellValue = DateHelper.format(date,DateHelper.DATE_FMT_1);                
-			} 
+				Date date = org.apache.poi.ss.usermodel.DateUtil.getJavaDate(value);
+				cellValue = DateHelper.format(date,DateHelper.DATE_FMT_1);
+			}
 			//数字型
-			else {  
+			else {
 				cellValue = (cv != null)? String.valueOf(cv.getNumberValue()):  String.valueOf(cell.getNumericCellValue());
-			}  
-			break;  
-		default:  
-			cellValue = null;  
+			}
+			break;
+		default:
+			cellValue = null;
 		}
-		return cellValue;  
+		return cellValue;
 	}
-	
+
 	/**
 	 * 生成excel下载;
 	 * @param filePath
@@ -252,8 +252,8 @@ public class ExcelHelper {
 	 */
 	public static void downLoadExcel(String filePath, HttpServletResponse response) throws Exception {
 		downLoadExcel(filePath, null, response, null);
-	} 
-	
+	}
+
 	/**
 	 * 生成指定的文件名称的excel下载;
 	 * @param filePath
@@ -274,55 +274,55 @@ public class ExcelHelper {
 		    if(request == null){
 		    }else{
 		    	String userAgent = request.getHeader("User-Agent");
-		    	if (userAgent != null)  
-		    	{  
+		    	if (userAgent != null)
+		    	{
 		    		String new_filename = URLEncoder.encode(fileName, "utf-8");
-		    		userAgent = userAgent.toLowerCase();  
-		    		// IE浏览器，只能采用URLEncoder编码  
-		    		if (userAgent.indexOf("msie") != -1)  
-		    		{  
-		    			rtn = "filename=\"" + new_filename + "\"";  
-		    		}  
-		    		// Opera浏览器只能采用filename*  
-		    		else if (userAgent.indexOf("opera") != -1)  
-		    		{  
-		    			rtn = "filename*=UTF-8''" + new_filename;  
-		    		}  
-		    		// Safari浏览器，只能采用ISO编码的中文输出  
-		    		else if (userAgent.indexOf("safari") != -1 )  
-		    		{  
-		    		}  
-		    		// Chrome浏览器，只能采用MimeUtility编码或ISO编码的中文输出  
-		    		else if (userAgent.indexOf("applewebkit") != -1 )  
-		    		{  
-		    			rtn = "filename=\"" + new_filename + "\"";  
-		    		}  
-		    		// FireFox浏览器，可以使用MimeUtility或filename*或ISO编码的中文输出  
-		    		else if (userAgent.indexOf("mozilla") != -1)  
-		    		{  
-		    			rtn = "filename*=UTF-8''" + new_filename;  
-		    		}  
-		    	}  
+		    		userAgent = userAgent.toLowerCase();
+		    		// IE浏览器，只能采用URLEncoder编码
+		    		if (userAgent.indexOf("msie") != -1)
+		    		{
+		    			rtn = "filename=\"" + new_filename + "\"";
+		    		}
+		    		// Opera浏览器只能采用filename*
+		    		else if (userAgent.indexOf("opera") != -1)
+		    		{
+		    			rtn = "filename*=UTF-8''" + new_filename;
+		    		}
+		    		// Safari浏览器，只能采用ISO编码的中文输出
+		    		else if (userAgent.indexOf("safari") != -1 )
+		    		{
+		    		}
+		    		// Chrome浏览器，只能采用MimeUtility编码或ISO编码的中文输出
+		    		else if (userAgent.indexOf("applewebkit") != -1 )
+		    		{
+		    			rtn = "filename=\"" + new_filename + "\"";
+		    		}
+		    		// FireFox浏览器，可以使用MimeUtility或filename*或ISO编码的中文输出
+		    		else if (userAgent.indexOf("mozilla") != -1)
+		    		{
+		    			rtn = "filename*=UTF-8''" + new_filename;
+		    		}
+		    	}
 		    }
-		    
-			bis =  new BufferedInputStream(new FileInputStream(file));  
-			byte[] buf = new byte[1024];  
+
+			bis =  new BufferedInputStream(new FileInputStream(file));
+			byte[] buf = new byte[1024];
 			int len = 0;
 
-			response.reset(); 
+			response.reset();
 			response.setContentType("application/x-msdownload");
-			response.setHeader("Content-Disposition", "attachment; " + rtn);  
-			out = response.getOutputStream();  
-			while ((len = bis.read(buf)) > 0){  
+			response.setHeader("Content-Disposition", "attachment; " + rtn);
+			out = response.getOutputStream();
+			while ((len = bis.read(buf)) > 0){
 				out.write(buf, 0, len);
 			}
-			out.flush();  
+			out.flush();
 		}finally{
 			IOHelper.close(bis);
 			IOHelper.close(out);
 			FileHelper.delete(file);
 		}
-	}  
+	}
 
 	/**
 	 * @param args
