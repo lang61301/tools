@@ -5,10 +5,20 @@ package cn.pdd.util.http;
 
 import java.io.File;
 import java.nio.charset.Charset;
+import java.security.SecureRandom;
+import java.security.cert.CertificateException;
+import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+
+import javax.net.ssl.HostnameVerifier;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLSession;
+import javax.net.ssl.SSLSocketFactory;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.X509TrustManager;
 
 import org.apache.log4j.Logger;
 
@@ -29,6 +39,9 @@ import okhttp3.internal.Util;
 import okhttp3.logging.HttpLoggingInterceptor;
 
 /**
+ * modify by 2020/11/23
+ * 增加信任所有的证书功能;
+ *
  * modify by 2020/6/23
  * 增加保存cookie方式;
  *
@@ -153,6 +166,11 @@ public class Http2Helper {
 	private boolean useCookie;
 	private List<Cookie> cookieList;
 
+	/**
+	 * add by 2020/11/23
+	 */
+	private boolean ignoreSSL = false;
+
 	private Http2Helper(String url, int type, Charset charset, boolean useCookie){
 		this.url = url;
 		this.type = type;
@@ -196,6 +214,16 @@ public class Http2Helper {
 
 	public Http2Helper setHeader(final String name, final String value) {
 		this.requestBuilder.header(name, value);
+        return this;
+    }
+
+
+	/**
+	 * 忽略证书;
+	 * @return
+	 */
+	public Http2Helper ignoreSSL() {
+		this.ignoreSSL = true;
         return this;
     }
 
@@ -333,11 +361,27 @@ public class Http2Helper {
 					&& readTimeout == DEFAULT_TIMEOUT
 					&& writeTimeout == DEFAULT_TIMEOUT
 					&& followRedirects == true) {
+
+				OkHttpClient.Builder b = null;
+
 				if(useCookie) {//需要cookie;
 					MemoryCookieJar mcj = new MemoryCookieJar(this.cookieList);
-					c = client.newBuilder()
-							.cookieJar(mcj)
-							.build();
+					if (null == b) {
+						b = client.newBuilder();
+					}
+					b.cookieJar(mcj);
+				}
+
+				if(ignoreSSL) {//忽略ssl
+					if (null == b) {
+						b = client.newBuilder();
+					}
+					b.sslSocketFactory(createSSLSocketFactory(), new TrustAllCerts())
+					 .hostnameVerifier(new TrustAllHostnameVerifier());
+				}
+
+				if (null != b) {
+					c= b.build();
 				}else {
 					c = client;
 				}
@@ -356,6 +400,12 @@ public class Http2Helper {
 					MemoryCookieJar mcj = new MemoryCookieJar(this.cookieList);
 					b.cookieJar(mcj);
 				}
+
+				if(ignoreSSL) {
+					b.sslSocketFactory(createSSLSocketFactory(), new TrustAllCerts())
+					.hostnameVerifier(new TrustAllHostnameVerifier());
+				}
+
 		        c = b.build();
 			}
 			Response result = c.newCall(this.request).execute();
@@ -379,6 +429,35 @@ public class Http2Helper {
 				e.printStackTrace();
 			}
 		}
+	}
+
+	private static class TrustAllCerts implements X509TrustManager {
+		@Override
+		public void checkClientTrusted(X509Certificate[] chain, String authType) throws CertificateException {}
+
+		@Override
+		public void checkServerTrusted(X509Certificate[] chain, String authType) throws CertificateException {}
+
+		@Override
+		public X509Certificate[] getAcceptedIssuers() {return new X509Certificate[0];}
+	}
+
+	private static class TrustAllHostnameVerifier implements HostnameVerifier {
+		@Override
+		public boolean verify(String hostname, SSLSession session) {
+			return true;
+		}
+	}
+
+	private static SSLSocketFactory createSSLSocketFactory() {
+		SSLSocketFactory ssfFactory = null;
+		try {
+			SSLContext sc = SSLContext.getInstance("TLS");
+			sc.init(null,  new TrustManager[] { new TrustAllCerts() }, new SecureRandom());
+			ssfFactory = sc.getSocketFactory();
+		} catch (Exception e) {
+		}
+		return ssfFactory;
 	}
 
 	public static void main(String[] args) throws Exception{
